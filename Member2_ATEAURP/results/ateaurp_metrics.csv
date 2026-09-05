@@ -1,0 +1,5 @@
+speed_mps,packets_sent,packets_delivered,packets_lost,pdr_percent,packet_loss_percent,avg_delay_ms,avg_hop_count,throughput_kbps,network_lifetime_rounds,first_node_death_round,malicious_nodes,isolated_nodes,detection_rate_percent,avg_trust,avg_energy_normalized,link_success_probability
+10,4000,2987,1013,74.675,25.325,89.679,5.783,122.348,200,755,5,5,100.0,0.7473,0.7353,0.8463
+20,4000,2834,1166,70.85,29.15,93.09,5.388,116.081,200,752,5,5,100.0,0.7602,0.7339,0.8249
+30,4000,2573,1427,64.325,35.675,97.085,5.438,105.39,200,686,5,5,100.0,0.756,0.7086,0.7935
+40,4000,2428,1572,60.7,39.3,101.07,5.392,99.451,200,651,5,5,100.0,0.7619,0.6929,0.7672
