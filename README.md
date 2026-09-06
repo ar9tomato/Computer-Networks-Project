@@ -14,10 +14,10 @@ directly comparable across all five.
 
 | Member | Protocol | Folder | Core idea |
 |---|---|---|---|
-| Member 1 | Baseline AODV & EAURP | `Member1_*` | Energy-aware trust filtering (PFR-based) over standard AODV |
+| Member 1 | Baseline AODV & EAURP | [`Member1_AODV_EAURP/`](./Member1_AODV_EAURP/) | Energy-aware trust filtering (PFR-based) over standard AODV |
 | Member 2 | ATEAURP | [`Member2_ATEAURP/`](./Member2_ATEAURP) | Adaptive moving-average trust: `T(t+1) = 0.7·T(t) + 0.3·PFR` |
 | Member 3 | PSE-EAURP | [`Member3_PSEEAURP/`](./Member3_PSEEAURP) | Predictive trust forecasting + PT_CREV controlled revocation |
-| Member 4 | DRL-EAURP | `Member4_*` | Centralized Q-learning routing agent (exploit/explore) |
+| Member 4 | DRL-EAURP | [`Member4_DRL_EAURP/`](./Member4_DRL_EAURP/) | Centralized Q-learning routing agent (exploit/explore) |
 | Member 5 | MADRL-EAURP | [`Member5_MADRL_EAURP/`](./Member5_MADRL_EAURP_Final.zip) | Multi-agent CTDE (QMIX/VDN) with 2-hop gossip |
 
 ## Shared Simulation Baseline
@@ -192,7 +192,6 @@ Member4_DRL_EAURP/
 │   ├── __init__.py
 │   ├── node.py              # Node and mobility model
 │   ├── network.py           # MANET topology and connectivity
-│   ├── energy.py            # Energy consumption and tracking
 │   └── metrics.py           # PDR, delay, loss, throughput and lifetime
 ├── protocols/
 │   ├── __init__.py
