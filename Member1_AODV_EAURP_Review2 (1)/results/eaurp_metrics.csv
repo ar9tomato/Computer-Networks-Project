@@ -1,0 +1,5 @@
+protocol,speed_mps,pdr_percent,avg_delay_ms,packets_sent,packets_delivered,packet_loss_count,packet_loss_percent,throughput_kbps,network_lifetime_rounds
+EAURP,10,62.188,379.095,1600,995,605,37.812,203.776,139
+EAURP,20,73.312,338.278,1600,1173,427,26.688,240.23,185
+EAURP,30,73.0,345.377,1600,1168,432,27.0,239.206,235
+EAURP,40,75.25,337.791,1600,1204,396,24.75,246.579,259
