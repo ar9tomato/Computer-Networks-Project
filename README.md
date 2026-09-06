@@ -1,202 +1,206 @@
-# MANET Routing Protocols — Comparative Simulation Project
+# Computer Networks Project — Unified Experiment Pipeline
 
-A comparative implementation and performance analysis of five progressively
-enhanced routing protocols for Mobile Ad-hoc Networks (MANETs), tracing the
-evolution:
+> **Start here:** `REFACTOR_NOTES.md` (routing fix, standardized baseline,
+> metrics schema, delivery modes) and `PARAMETER_FIXES.md` (trust
+> false-positive bug, DRL exploration, what was deliberately not tuned).
+>
+> **Run it:**
+> ```bash
+> python run_all_experiments.py                           # tuned mode (default)
+> python run_all_experiments.py --delivery-mode simulated  # PDR derived from routing
+> python visualize_all.py --output-dir plots/tuned
+> python visualize_all.py --input results/combined_metrics_simulated.csv \
+>                         --output-dir plots/simulated
+> ```
+>
+> Baseline for every protocol: **4,000 packets, 100 J/node, speeds
+> [10, 20, 30, 40] m/s, 100 ms/round.** Both modes reproduce byte-identically
+> across runs.
+>
+> Read the "what I did not tune" section of `PARAMETER_FIXES.md` before using
+> these numbers in a write-up — several columns are modelled rather than
+> measured, and they are not all comparable across engines.
 
-**AODV (baseline) → EAURP → ATEAURP → PSE-EAURP → DRL-EAURP → MADRL-EAURP**
+Consolidated MANET routing-protocol comparison across **all five members'
+protocols**: **AODV**, **EAURP**, **ATEAURP**, **PSE-EAURP**, **DRL-EAURP**,
+and **MADRL-EAURP**. Each member folder used to have its own duplicated
+`run_experiments.py` + `visualize.py`. This refactor replaces all of them
+with one root-level runner and one root-level visualizer producing a
+single consolidated results file and one set of comparative charts
+covering every protocol.
 
-Each member independently implements, simulates, and documents one protocol
-in the chain, using a shared node/network/metrics baseline so results are
-directly comparable across all five.
+## Folder structure
 
-## Team & Protocols
+```
+Computer-Networks-Project/
+├── engines/                      # protocol implementations, one per member
+│   ├── aodv_eaurp/                # Member1_AODV_EAURP_Review2 → AODVEngine, EAURPEngine
+│   ├── ateaurp/                   # Member2_ATEAURP           → ATEAURPEngine
+│   ├── pse_eaurp/                 # Member3_PSEEAURP          → PSEEAURPEngine
+│   ├── drl_eaurp/                 # Member_4_DRL_EAURP        → DRLEAURPEngine
+│   └── madrl_eaurp/               # Member5_MADRL_EAURP       → MADRLEAURP (torch-based)
+│       each with its own untouched core/ (Network, Node, MetricsCollector)
+│       and protocols/ (the routing engine itself)
+├── engine_adapters/               # the "glue" that makes one pipeline possible
+│   ├── __init__.py                # isolated import helper + common row schema
+│   ├── benchmark.py               # shared baseline params + unified metric schema
+│   ├── aodv_eaurp_adapter.py       # runs AODV + EAURP
+│   ├── ateaurp_adapter.py          # runs ATEAURP
+│   ├── pse_eaurp_adapter.py        # runs PSE-EAURP
+│   ├── drl_eaurp_adapter.py        # runs DRL-EAURP
+│   └── madrl_eaurp_adapter.py      # runs MADRL-EAURP
+├── run_all_experiments.py         # single root runner (all 6 protocols)
+├── visualize_all.py                # single root visualizer (all 6 on one chart)
+├── results/
+│   ├── combined_metrics.csv            # generated — tuned mode
+│   ├── combined_metrics_simulated.csv  # generated — simulated mode
+│   └── metric_applicability.csv        # which 0.0 values are structural
+├── plots/
+│   ├── tuned/       *.png              # generated (5 charts)
+│   └── simulated/   *.png              # generated (5 charts)
+├── REFACTOR_NOTES.md
+├── PARAMETER_FIXES.md
+└── requirements.txt
+```
 
-| Member | Protocol | Folder | Core idea |
+Every member's `run_experiments.py` and `visualize.py` are removed —
+their logic now lives in `engine_adapters/` and the two root scripts.
+
+## Why there's an `engine_adapters/` layer instead of one merged `core/`
+
+The five members' protocol code was written independently and is
+**not API-compatible** across the board:
+
+| Engine family | Network class | Node "alive" check | Per-packet call |
 |---|---|---|---|
-| Member 1 | Baseline AODV & EAURP | [`Member1_AODV_EAURP/`](./Member1_AODV_EAURP/) | Energy-aware trust filtering (PFR-based) over standard AODV |
-| Member 2 | ATEAURP | [`Member2_ATEAURP/`](./Member2_ATEAURP) | Adaptive moving-average trust: `T(t+1) = 0.7·T(t) + 0.3·PFR` |
-| Member 3 | PSE-EAURP | [`Member3_PSEEAURP/`](./Member3_PSEEAURP) | Predictive trust forecasting + PT_CREV controlled revocation |
-| Member 4 | DRL-EAURP | [`Member4_DRL_EAURP/`](./Member4_DRL_EAURP/) | Centralized Q-learning routing agent (exploit/explore) |
-| Member 5 | MADRL-EAURP | [`Member5_MADRL_EAURP/`](./Member5_MADRL_EAURP_Final.zip) | Multi-agent CTDE (QMIX/VDN) with 2-hop gossip |
+| `aodv_eaurp` (M1) | `Network` | `node.alive` | `engine.send_packet(src, dst, metrics, round)` — mutates a shared `MetricsCollector` |
+| `ateaurp` / `pse_eaurp` / `drl_eaurp` (M2/M3/M4) | `NetworkManager` | `node.is_alive` (property) | `engine.route_packet(src, dst, round)` → `(delivered, delay_ms, hop_count)` |
+| `madrl_eaurp` (M5) | `MANETNetwork` | `node.is_alive()` (method) | `engine.step_environment(training=...)` — a full train/eval RL loop, no single-packet call at all |
 
-## Shared Simulation Baseline
+M2/M3/M4 actually share an *identical* `core/` (byte-for-byte for
+`node.py`/`metrics.py`; only `network.py`'s docstring differs) — only
+their engine classes (`ATEAURPEngine`, `PSEEAURPEngine`,
+`DRLEAURPEngine`) differ, each with a different constructor and
+per-round trust-update contract. M5 shares nothing with the other four:
+it's a torch-based multi-agent DRL router with its own network/metrics
+classes and an explicit train-then-evaluate loop instead of a
+speed-sweep loop.
 
-Every member's `core/` implements the same agreed environment so results
-are comparable:
+Silently merging all of this into one `Network`/`Node`/`Engine` class
+would mean rewriting and re-validating five different simulation
+cores — out of scope for a structural refactor, and risky to
+correctness. Instead:
 
-- **Deployment area:** 1000 × 1000 m²
-- **Node count:** 50 (default), scalable up to 500
-- **Speed sweep:** 10–40 m/s
-- **Connectivity:** Euclidean distance threshold, `d_ij ≤ R`
-- **Metrics:** Packet Delivery Ratio (PDR), Average Delay (ms), Packet Loss, Throughput (kbps), Network Lifetime (rounds)
+- Each engine's `core/` and `protocols/` package is kept **completely
+  unmodified** (aside from two fixes documented below), just moved
+  under `engines/<name>/`.
+- Multiple engines' packages are still named `core` and `protocols`
+  internally (their own files still do `from core.network import
+  Network`, etc.), so `engine_adapters/__init__.py`'s
+  `_isolated_import()` helper loads each engine's `core`/`protocols`
+  from its own directory and clears `sys.modules` between engines, so
+  same-named packages never collide.
+- Each adapter (`aodv_eaurp_adapter.py`, `ateaurp_adapter.py`,
+  `pse_eaurp_adapter.py`, `drl_eaurp_adapter.py`,
+  `madrl_eaurp_adapter.py`) reproduces that member's original
+  experiment loop, then converts its output into one **common row
+  schema** (`protocol`, `speed_mps`, `pdr_percent`, `avg_delay_ms`,
+  `packet_loss_percent`, `throughput_kbps`,
+  `network_lifetime_rounds`, plus whatever protocol-specific extra
+  columns it has — e.g. `detection_rate_percent`, `avg_trust`,
+  `total_pt_crev_broadcasts`, `gossip_messages`).
 
-Each member's folder is self-contained (`core/`, `protocols/`,
-`run_experiments.py`, `visualize.py`, `results/`) so it can be run
-independently:
+`run_all_experiments.py` and `visualize_all.py` only ever talk to that
+common schema — they don't know or care that `AODVEngine` and
+`MADRLEAURP` work completely differently internally.
+
+### Two bugs fixed in Member5's original script (not a redesign)
+
+`madrl_eaurp_adapter.py`'s docstring documents this in full, but in
+short: Member5's original `run_experiments.py`
+
+1. called `np.random.uniform(...)` without ever importing `numpy` — it
+   would crash immediately. The adapter imports it itself.
+2. computed `"lifetime"` as `1000 - (speed * 5.5) + noise` — a formula
+   with no connection to the simulated nodes' actual energy at all.
+   The adapter instead derives `network_lifetime_rounds` from each
+   node's real observed energy depletion (first real death within the
+   run, or an estimate from the observed depletion rate), the same
+   convention `ateaurp`/`pse_eaurp`/`drl_eaurp`'s own
+   `estimate_first_node_death_round` already uses.
+
+Everything else about MADRL-EAURP (network size, speed sweep, the
+50-round training + 100-round evaluation split, the DRL routing/gossip
+logic itself) is unchanged. Its very low PDR in quick test runs is the
+DQN needing more training, not a plumbing bug — it's inherited as-is
+from the original engine.
+
+## `__init__.py` / import notes
+
+- No changes were needed inside any `engines/<name>/` package — their
+  `core/__init__.py` and `protocols/__init__.py` are untouched, and
+  their internal files keep using `from core.network import ...` /
+  `from protocols.<x> import ...` exactly as before.
+- The only new import machinery is `engine_adapters/__init__.py`'s
+  `_isolated_import(engine_dir_name, module_path)`, which:
+  1. removes any previously-loaded `core.*` / `protocols.*` modules
+     from `sys.modules`,
+  2. puts `engines/<engine_dir_name>/` at the front of `sys.path` (and
+     removes every other engine's directory from `sys.path`),
+  3. imports and returns the requested module fresh from that
+     directory.
+- To add a sixth engine later: drop it under `engines/<name>/` with its
+  own `core/`/`protocols/` packages, write one adapter module that
+  calls `_isolated_import("<name>", "...")` and returns
+  `normalize_row(...)` rows, add it to the `ADAPTERS` dict in
+  `run_all_experiments.py`, and (optionally) give it a style entry in
+  `visualize_all.py`'s `PROTOCOL_STYLES`.
+
+## Usage
+
 ```bash
-cd Member<N>_<PROTOCOL>/
 pip install -r requirements.txt
-python run_experiments.py
-python visualize.py
+
+# Run all six protocols across the standard speed sweep (10/20/30/40 m/s)
+python run_all_experiments.py
+
+# Optional: customize the sweep or round counts per engine
+python run_all_experiments.py --speeds 10 20 30 40 \
+    --aodv-eaurp-rounds 400 --aodv-eaurp-packets-per-round 4 \
+    --ateaurp-rounds 200 --ateaurp-packets-per-round 20 \
+    --pse-eaurp-rounds 200 --pse-eaurp-packets-per-round 20 \
+    --drl-eaurp-rounds 200 --drl-eaurp-packets-per-round 20
+
+# Skip an engine (e.g. if torch isn't installed for MADRL-EAURP)
+python run_all_experiments.py --skip madrl_eaurp
+
+# Plot every protocol present in the results on the same comparative charts
+python visualize_all.py
 ```
 
----
+`run_all_experiments.py` writes `results/combined_metrics.csv` with one
+row per `(protocol, speed)` pair across all engines that ran.
+`visualize_all.py` reads that file and writes one PNG per metric under
+`plots/`, with every protocol present plotted together using a fixed,
+distinct color/marker/line-style per protocol and a legend.
 
-## Member 2: ATEAURP
+## Metrics compared
 
-Adaptive Trust-Enhanced Energy-Aware Unicast Routing Protocol.
+- Packet Delivery Ratio (%)
+- Average Delay (ms)
+- Packet Loss (%)
+- Throughput (kbps)
+- Network Lifetime (rounds)
 
-### Features
-- Dynamic trust-based routing engine with malicious node isolation.
-- Energy consumption & network lifetime tracking.
-- Automated node speed sweep experiments (10 to 40 m/s).
-- Metric visualization generation (PDR, Delay, Throughput, Lifetime).
+Each protocol may also report extra columns in `combined_metrics.csv`
+(e.g. ATEAURP/PSE-EAURP/DRL-EAURP's `avg_trust`,
+`detection_rate_percent`; PSE-EAURP's `total_pt_crev_broadcasts`;
+MADRL-EAURP's `gossip_messages`) that aren't part of the shared
+comparison charts but remain available for protocol-specific analysis.
 
-### Project Structure
-```text
-Member2_ATEAURP/
-├── core/               # Network, node, and metrics modules
-├── protocols/          # ATEAURP routing and trust engine implementation
-├── results/            # Exported metrics (CSV) and plots (PNG)
-├── run_experiments.py  # Simulation CLI entry point
-├── visualize.py        # Plot generation script
-└── requirements.txt    # Project dependencies
-```
+## Note on `madrl_eaurp`'s dependency
 
----
-
-## Member 3: PSE-EAURP
-
-Predictive Secure Energy-Aware Unicast Routing Protocol — extends
-ATEAURP's reactive trust with a **predictive** trust layer, so misbehaving
-nodes are flagged and routed around *before* their trust fully collapses.
-
-### Features
-- 3-slot sliding trust history per node, combined into a weighted forecast:
-  `T_pred = 0.5·T(t) + 0.3·T(t-1) + 0.2·T(t-2)`
-- Cross-layer predictive routing probability:
-  `P_success = min(0.4 + 0.35·T_pred_avg + 0.15·E_avg + 0.1·M_avg, 0.97)`
-- `PT_CREV` controlled revocation: nodes with sustained low predicted trust
-  are blacklisted and broadcast network-wide; routes through revoked nodes
-  are torn down and rediscovered automatically.
-- Full multi-hop routing simulation (relay retries, malicious drop
-  modeling) driving PDR / delay / throughput / lifetime metrics.
-
-### Results (50 nodes, 200 rounds, 10–40 m/s sweep)
-
-| Speed (m/s) | PDR | Avg. Delay | Throughput |
-|---|---|---|---|
-| 10 | 87.5% | 74.4 ms | 143.3 kbps |
-| 20 | 84.2% | 75.8 ms | 137.9 kbps |
-| 30 | 81.2% | 78.3 ms | 133.0 kbps |
-| 40 | 79.4% | 79.9 ms | 130.1 kbps |
-
-Outperforms ATEAURP (Member 2) on both PDR and delay at every speed
-tested, consistent with the predictive-trust layer catching misbehaving
-nodes earlier than a plain moving average.
-
-A separate comparison against the senior's original PSE-EAURP notebook
-implementation is included in the project report — see the shared
-findings document for the full write-up (throughput scale differs between
-the two codebases due to differing packet-size/measurement-window
-assumptions, flagged and explained there).
-
-### Project Structure
-```text
-Member3_PSEEAURP/
-├── core/                        # Shared network, node, and metrics modules
-├── protocols/
-│   ├── pse_eaurp_trust.py       # Predictive trust math (history buffer, forecast, revocation)
-│   └── pse_eaurp_engine.py      # Full routing/simulation engine
-├── results/                     # Exported metrics (CSV) and plots (PNG)
-├── run_experiments.py           # Simulation CLI entry point
-├── visualize.py                 # Plot generation script
-└── requirements.txt             # Project dependencies
-```
-
----
-
-## Member 4: DRL-EAURP
-
-Deep Reinforcement Learning-based Energy-Aware Unicast Routing Protocol.
-
-DRL-EAURP extends the EAURP approach by introducing a centralized
-Q-learning-based routing agent that learns routing decisions through
-exploration and exploitation. The agent considers network trust, residual
-energy, and mobility conditions to improve routing reliability and
-energy efficiency in dynamic MANET environments.
-
-### Features
-- Centralized Q-learning-based routing agent for adaptive route selection.
-- Exploitation of learned routing decisions and exploration of alternative
-  routing choices.
-- Trust-aware and energy-aware routing decisions.
-- Network state representation using average trust, normalized residual
-  energy, and node mobility.
-- Reward-based learning from successful packet delivery and packet loss.
-- Malicious-node detection and isolation during routing.
-- Multi-hop MANET routing with packet forwarding and relay behavior.
-- Automated node-speed sweep experiments from 10 to 40 m/s.
-- Energy consumption and network lifetime tracking.
-- Performance evaluation using PDR, packet loss, average delay,
-  throughput, and network lifetime.
-- Automatic CSV metric export and performance plot generation.
-
-### DRL Routing Model
-
-The centralized Q-learning agent observes the current network state using
-trust, energy, and mobility information:
-
-`State = <T_avg, E_avg, M_avg>`
-
-where:
-
-- `T_avg` = average trust of the network nodes
-- `E_avg` = normalized average residual energy
-- `M_avg` = mobility-related network condition
-
-The agent selects between exploration and exploitation to adapt its routing
-behaviour to changing network conditions. Successful packet delivery
-provides a positive reward, while packet loss provides a negative reward,
-allowing the Q-table to gradually learn better routing decisions.
-
-### Results
-
-The DRL-EAURP implementation was evaluated using the shared MANET
-simulation baseline with **50 nodes**, a **1000 × 1000 m²** deployment
-area, and **200 simulation rounds** for each node-speed configuration.
-
-| Speed (m/s) | PDR | Packet Loss | Avg. Delay (ms) | Throughput (kbps) | Network Lifetime (rounds) |
-|---:|---:|---:|---:|---:|---:|
-| 10 | 97.975% | 81 | 80.097 | 160.522 | 200 |
-| 20 | 97.800% | 88 | 81.157 | 160.236 | 200 |
-| 30 | 96.200% | 152 | 80.266 | 157.614 | 200 |
-| 40 | 92.275% | 309 | 81.186 | 151.183 | 200 |
-
-The results show that DRL-EAURP maintains a high Packet Delivery Ratio
-under increasing node mobility. PDR decreases from **97.975% at 10 m/s**
-to **92.275% at 40 m/s**, while throughput decreases from **160.522 kbps**
-to **151.183 kbps**. Average delay remains relatively stable at around
-**80–81 ms** across the tested mobility range.
-
-The network lifetime remains at **200 rounds** for all tested speeds,
-indicating that the network remained operational throughout the configured
-simulation period.
-
-### Project Structure
-
-```text
-Member4_DRL_EAURP/
-├── core/
-│   ├── __init__.py
-│   ├── node.py              # Node and mobility model
-│   ├── network.py           # MANET topology and connectivity
-│   └── metrics.py           # PDR, delay, loss, throughput and lifetime
-├── protocols/
-│   ├── __init__.py
-│   └── drl_eaurp.py         # DRL-EAURP routing and Q-learning engine
-├── results/                 # Exported CSV metrics and generated plots
-├── run_experiments.py       # Simulation and speed-sweep entry point
-├── visualize.py             # Performance plot generation
-└── requirements.txt         # Project dependencies
+`engines/madrl_eaurp` uses `torch` for its DQN (the other four engines
+only need `pandas`/`matplotlib`, already in `requirements.txt`). Install
+it with `pip install torch`, or run everything else via
+`python run_all_experiments.py --skip madrl_eaurp` if you don't need it.

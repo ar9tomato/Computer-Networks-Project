@@ -1,0 +1,5 @@
+pandas>=1.5
+matplotlib>=3.6
+# Required only for engines/madrl_eaurp (Member5's torch-based DQN engine).
+# Omit / skip that engine via `--skip madrl_eaurp` if you don't need it.
+torch>=2.0

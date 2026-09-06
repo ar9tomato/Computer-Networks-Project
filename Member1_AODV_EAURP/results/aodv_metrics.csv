@@ -1,5 +1,0 @@
-protocol,speed_mps,pdr_percent,avg_delay_ms,packets_sent,packets_delivered,packet_loss_count,packet_loss_percent,throughput_kbps,network_lifetime_rounds
-AODV,10,59.812,377.847,1600,957,643,40.188,195.994,115
-AODV,20,68.375,343.967,1600,1094,506,31.625,224.051,109
-AODV,30,68.5,345.255,1600,1096,504,31.5,224.461,165
-AODV,40,70.625,337.257,1600,1130,470,29.375,231.424,192
