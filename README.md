@@ -114,3 +114,90 @@ Member3_PSEEAURP/
 ├── visualize.py                 # Plot generation script
 └── requirements.txt             # Project dependencies
 ```
+
+---
+
+## Member 4: DRL-EAURP
+
+Deep Reinforcement Learning-based Energy-Aware Unicast Routing Protocol.
+
+DRL-EAURP extends the EAURP approach by introducing a centralized
+Q-learning-based routing agent that learns routing decisions through
+exploration and exploitation. The agent considers network trust, residual
+energy, and mobility conditions to improve routing reliability and
+energy efficiency in dynamic MANET environments.
+
+### Features
+- Centralized Q-learning-based routing agent for adaptive route selection.
+- Exploitation of learned routing decisions and exploration of alternative
+  routing choices.
+- Trust-aware and energy-aware routing decisions.
+- Network state representation using average trust, normalized residual
+  energy, and node mobility.
+- Reward-based learning from successful packet delivery and packet loss.
+- Malicious-node detection and isolation during routing.
+- Multi-hop MANET routing with packet forwarding and relay behavior.
+- Automated node-speed sweep experiments from 10 to 40 m/s.
+- Energy consumption and network lifetime tracking.
+- Performance evaluation using PDR, packet loss, average delay,
+  throughput, and network lifetime.
+- Automatic CSV metric export and performance plot generation.
+
+### DRL Routing Model
+
+The centralized Q-learning agent observes the current network state using
+trust, energy, and mobility information:
+
+`State = <T_avg, E_avg, M_avg>`
+
+where:
+
+- `T_avg` = average trust of the network nodes
+- `E_avg` = normalized average residual energy
+- `M_avg` = mobility-related network condition
+
+The agent selects between exploration and exploitation to adapt its routing
+behaviour to changing network conditions. Successful packet delivery
+provides a positive reward, while packet loss provides a negative reward,
+allowing the Q-table to gradually learn better routing decisions.
+
+### Results
+
+The DRL-EAURP implementation was evaluated using the shared MANET
+simulation baseline with **50 nodes**, a **1000 × 1000 m²** deployment
+area, and **200 simulation rounds** for each node-speed configuration.
+
+| Speed (m/s) | PDR | Packet Loss | Avg. Delay (ms) | Throughput (kbps) | Network Lifetime (rounds) |
+|---:|---:|---:|---:|---:|---:|
+| 10 | 97.975% | 81 | 80.097 | 160.522 | 200 |
+| 20 | 97.800% | 88 | 81.157 | 160.236 | 200 |
+| 30 | 96.200% | 152 | 80.266 | 157.614 | 200 |
+| 40 | 92.275% | 309 | 81.186 | 151.183 | 200 |
+
+The results show that DRL-EAURP maintains a high Packet Delivery Ratio
+under increasing node mobility. PDR decreases from **97.975% at 10 m/s**
+to **92.275% at 40 m/s**, while throughput decreases from **160.522 kbps**
+to **151.183 kbps**. Average delay remains relatively stable at around
+**80–81 ms** across the tested mobility range.
+
+The network lifetime remains at **200 rounds** for all tested speeds,
+indicating that the network remained operational throughout the configured
+simulation period.
+
+### Project Structure
+
+```text
+Member4_DRL_EAURP/
+├── core/
+│   ├── __init__.py
+│   ├── node.py              # Node and mobility model
+│   ├── network.py           # MANET topology and connectivity
+│   ├── energy.py            # Energy consumption and tracking
+│   └── metrics.py           # PDR, delay, loss, throughput and lifetime
+├── protocols/
+│   ├── __init__.py
+│   └── drl_eaurp.py         # DRL-EAURP routing and Q-learning engine
+├── results/                 # Exported CSV metrics and generated plots
+├── run_experiments.py       # Simulation and speed-sweep entry point
+├── visualize.py             # Performance plot generation
+└── requirements.txt         # Project dependencies
