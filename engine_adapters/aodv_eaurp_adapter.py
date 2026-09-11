@@ -38,12 +38,14 @@ def _generate_traffic_pattern(num_nodes, num_pairs, seed):
     return [tuple(rng.sample(range(num_nodes), 2)) for _ in range(num_pairs)]
 
 
-def _run_single(engine_cls, network_cls, metrics_cls, speed, rounds, packets_per_round, seed):
+def _run_single(engine_cls, network_cls, metrics_cls, speed, rounds, packets_per_round, seed,
+                 num_nodes=NUM_NODES, grid_width=GRID_WIDTH, grid_height=GRID_HEIGHT,
+                 transmission_range=TRANSMISSION_RANGE):
     network = network_cls(
-        num_nodes=NUM_NODES,
-        grid_width=GRID_WIDTH,
-        grid_height=GRID_HEIGHT,
-        transmission_range=TRANSMISSION_RANGE,
+        num_nodes=num_nodes,
+        grid_width=grid_width,
+        grid_height=grid_height,
+        transmission_range=transmission_range,
         speed=speed,
         energy_init=ENERGY_INIT,
         seed=seed,
@@ -51,7 +53,7 @@ def _run_single(engine_cls, network_cls, metrics_cls, speed, rounds, packets_per
     engine = engine_cls(network)
     metrics = metrics_cls()
 
-    traffic = _generate_traffic_pattern(NUM_NODES, rounds * packets_per_round, seed=seed + 1000)
+    traffic = _generate_traffic_pattern(num_nodes, rounds * packets_per_round, seed=seed + 1000)
     traffic_index = 0
 
     for round_index in range(rounds):
@@ -92,11 +94,16 @@ def _run_single(engine_cls, network_cls, metrics_cls, speed, rounds, packets_per
     return summary
 
 
-def run(speeds, rounds=ROUNDS, packets_per_round=PACKETS_PER_ROUND, verbose=True):
+def run(speeds, rounds=ROUNDS, packets_per_round=PACKETS_PER_ROUND, verbose=True,
+        num_nodes=NUM_NODES, grid_width=None, grid_height=None):
     """
     Runs AODV and EAURP across all `speeds`. Returns a flat list of
     normalized row dicts (both protocols interleaved per speed, same
     order as the original run_experiments.py).
+
+    `num_nodes` / `grid_width` / `grid_height` default to the standard
+    benchmark values; pass a different `num_nodes` (with grid_width/height
+    left as None) to run a density-matched scaling experiment instead.
     """
     network_module = _isolated_import(ENGINE_DIR, "core.network")
     metrics_module = _isolated_import(ENGINE_DIR, "core.metrics")
@@ -107,20 +114,26 @@ def run(speeds, rounds=ROUNDS, packets_per_round=PACKETS_PER_ROUND, verbose=True
     AODVEngine = protocols_module.AODVEngine
     EAURPEngine = protocols_module.EAURPEngine
 
+    if grid_width is None or grid_height is None:
+        from engine_adapters.benchmark import density_matched_grid
+        grid_width, grid_height = density_matched_grid(num_nodes)
+
     rows = []
     for speed in speeds:
         seed = MASTER_SEED + speed
 
         if verbose:
-            print(f"[AODV ] speed={speed} m/s ...")
-        aodv_summary = _run_single(AODVEngine, Network, MetricsCollector, speed, rounds, packets_per_round, seed)
+            print(f"[AODV ] speed={speed} m/s, num_nodes={num_nodes} ...")
+        aodv_summary = _run_single(AODVEngine, Network, MetricsCollector, speed, rounds, packets_per_round, seed,
+                                    num_nodes=num_nodes, grid_width=grid_width, grid_height=grid_height)
         rows.append(normalize_row("AODV", speed, aodv_summary))
         if verbose:
             print(f"        -> {aodv_summary}")
 
         if verbose:
-            print(f"[EAURP] speed={speed} m/s ...")
-        eaurp_summary = _run_single(EAURPEngine, Network, MetricsCollector, speed, rounds, packets_per_round, seed)
+            print(f"[EAURP] speed={speed} m/s, num_nodes={num_nodes} ...")
+        eaurp_summary = _run_single(EAURPEngine, Network, MetricsCollector, speed, rounds, packets_per_round, seed,
+                                     num_nodes=num_nodes, grid_width=grid_width, grid_height=grid_height)
         rows.append(normalize_row("EAURP", speed, eaurp_summary))
         if verbose:
             print(f"        -> {eaurp_summary}")

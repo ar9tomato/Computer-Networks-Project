@@ -46,17 +46,54 @@ and only correct the environment dynamics the agents act in:
   * Reward shaping rewards successful arrivals and heavily penalises drops
     and buffer overflows, so the learned policy converges on delivery rather
     than on shedding load.
+
+SCALABILITY FIX — fixed-size candidate action space (vs. the original)
+------------------------------------------------------------------------
+The original state/action space indexed every possible global node ID
+directly: state_dim = 2 + num_nodes, action_dim = num_nodes. That meant the
+thing the Q-network had to learn got harder every time the network grew —
+at 400 nodes it was mapping a 402-dimensional, almost-entirely-padding
+state to a 1-of-400 decision, from the same 50 warm-up rounds used at 50
+nodes. Measured against DRL-EAURP (whose action space is a fixed 2 choices
+regardless of network size) on a density-matched node-count sweep, this
+caused MADRL-EAURP's PDR to fall from clearly ahead of DRL-EAURP at 50-200
+nodes to behind it at 400.
+
+Every node now ranks its own current 1-hop neighbours by a
+trust/energy/occupancy desirability score and keeps only the top
+MAX_CANDIDATES (see Node.candidate_slots, rebuilt once per round by
+_build_candidate_slots below). The Q-network reasons over "prefer my
+best-ranked candidate", "my second-best", etc. — a fixed MAX_CANDIDATES + 1
+actions and 2 + MAX_CANDIDATES state dims no matter how large the network
+gets — instead of "prefer global node #217". This is the standard way
+multi-agent routing policies are kept scalable (parameter sharing over a
+bounded candidate set rather than a raw ID-indexed action space); it does
+not change the reward, the gossip/trust mechanics, the fallback routing
+logic, or anything about the simulated environment.
 """
 
+import math
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 
-# Maximum number of hops a packet may take before it is retired as
-# undeliverable. Sized against the ~1000m grid / 250m transmission range
-# topology so a legitimate cross-grid route always fits inside the budget.
-MAX_HOPS = 12
+# TTL safety factor: matches the roughly-4.5x-over-minimum-crossing-distance
+# convention already implied by DRL/ATEAURP/PSE-EAURP's fixed max_hops=25 at
+# this project's 1000m-grid/250m-tx_range baseline (diagonal 1414m / 250m =
+# 5.66 minimum hops to cross the grid in a straight line; 25 / 5.66 ~= 4.4).
+# MADRL-EAURP previously hardcoded a flat MAX_HOPS=12 — about half that
+# convention, and not derived from the topology at all — which becomes an
+# increasingly tight bottleneck as the grid (and the hop count a legitimate
+# route needs) grows with num_nodes. Deriving it from the network's own
+# geometry keeps the budget proportionate at every scale, whereas the other
+# engines' fixed 25 is only proportionate at their default 50-node baseline.
+HOP_BUDGET_SAFETY_FACTOR = 4.5
+
+# Fixed size of each node's ranked candidate shortlist. The Q-network's
+# state/action space is built on this constant, not on num_nodes — see the
+# "SCALABILITY FIX" note above.
+MAX_CANDIDATES = 8
 
 # Reward shaping constants.
 REWARD_DELIVERY = 10.0        # successful arrival at destination
@@ -86,8 +123,19 @@ class MADRLEAURP:
         self.packets_per_round = packets_per_round
 
         self.num_nodes = network.num_nodes
-        self.state_dim = 2 + self.num_nodes
-        self.action_dim = self.num_nodes
+        self.max_candidates = MAX_CANDIDATES
+        # +1 action = "defer to the fallback heuristic" (this round's
+        # analogue of the old "prefer myself / hold" action).
+        self.state_dim = 2 + self.max_candidates
+        self.action_dim = self.max_candidates + 1
+        self.defer_action = self.max_candidates
+
+        # Packet TTL derived from this network's own geometry — see the
+        # HOP_BUDGET_SAFETY_FACTOR note above.
+        grid_diag = math.hypot(getattr(network, "grid_size", 1000),
+                                getattr(network, "grid_size", 1000))
+        tx_range = max(getattr(network, "tx_range", 250), 1.0)
+        self.max_hops = max(10, round(grid_diag / tx_range * HOP_BUDGET_SAFETY_FACTOR))
 
         self.device = torch.device("cpu")
 
@@ -134,6 +182,37 @@ class MADRLEAURP:
                         )
 
     # ------------------------------------------------------------------
+    # Fixed-size candidate shortlist (the scalability fix)
+    # ------------------------------------------------------------------
+    def _build_candidate_slots(self):
+        """
+        Ranks each alive node's current 1-hop neighbours by a
+        destination-agnostic desirability score (residual energy, this
+        node's trust in them, how free their buffer is — the same three
+        ingredients _candidate_score uses, minus the per-packet geographic
+        progress term since this runs once per round, before any packet's
+        destination is known) and keeps the top `max_candidates`.
+
+        This list is what get_local_state encodes and what get_actions'
+        indices refer to, so state_dim/action_dim stay fixed at
+        2 + max_candidates / max_candidates + 1 regardless of num_nodes.
+        """
+        for node in self.net.nodes:
+            if not node.is_alive() or not node.neighbors_1hop:
+                node.candidate_slots = []
+                continue
+
+            def desirability(cand_id, _node=node):
+                cand = self.net.nodes[cand_id]
+                energy = cand.energy / cand.initial_energy
+                trust = _node.trust_table[cand_id]
+                occupancy = len(cand.buffer) / cand.buffer_capacity
+                return (0.8 * trust) + (0.6 * energy) - (0.5 * occupancy)
+
+            ranked = sorted(node.neighbors_1hop, key=desirability, reverse=True)
+            node.candidate_slots = ranked[:self.max_candidates]
+
+    # ------------------------------------------------------------------
     # Action selection
     # ------------------------------------------------------------------
     def get_actions(self, states, epsilon_override=None):
@@ -144,9 +223,11 @@ class MADRLEAURP:
             q_values = self.q_net(state_tensor).cpu().numpy()
 
         for i, node in enumerate(self.net.nodes):
-            valid_actions = node.neighbors_1hop + [node.node_id]
+            # Slot indices for this node's current shortlist, plus the
+            # always-available "defer" action.
+            valid_actions = list(range(len(node.candidate_slots))) + [self.defer_action]
             if not node.is_alive():
-                actions.append(node.node_id)
+                actions.append(self.defer_action)
                 continue
 
             if np.random.rand() < eps:
@@ -208,10 +289,13 @@ class MADRLEAURP:
         Order of preference:
           1. The destination itself, if it is a reachable direct neighbour
              (always the correct terminal move — no policy should override it).
-          2. The Q-network's chosen action, if it is reachable and loop-free.
+          2. The Q-network's chosen candidate slot, if that slot is filled
+             and the neighbour it names is reachable and loop-free.
           3. LOCAL REPAIR — best reachable neighbour by energy-aware,
              trust-weighted geographic progress. This is the graceful
-             recovery for an invalid / unreachable / loop-closing action.
+             recovery for an invalid / unreachable / loop-closing action,
+             and also what "defer" (action index == max_candidates) always
+             falls through to.
           4. ENERGY-AWARE ROUTE DISCOVERY — relax the loop constraint and
              re-scan every live neighbour with buffer space, picking the most
              energy-rich forward progress. Models a fresh route request when
@@ -224,9 +308,12 @@ class MADRLEAURP:
         if self._reachable(node, dst_id, packet):
             return dst_id, "accepted"
 
-        # 2. Honour the learned action when it is actually usable.
-        if preferred_action != node.node_id and self._reachable(node, preferred_action, packet):
-            return preferred_action, "accepted"
+        # 2. Honour the learned action when its candidate slot is filled
+        # and actually usable.
+        if preferred_action < len(node.candidate_slots):
+            preferred_id = node.candidate_slots[preferred_action]
+            if self._reachable(node, preferred_id, packet):
+                return preferred_id, "accepted"
 
         # 3. Local repair over loop-free neighbours.
         candidates = [n for n in node.neighbors_1hop if self._reachable(node, n, packet)]
@@ -283,7 +370,11 @@ class MADRLEAURP:
     # ------------------------------------------------------------------
     def step_environment(self, training=True):
         self.metrics.simulation_time += 1
-        states = [n.get_local_state(self.num_nodes) for n in self.net.nodes]
+        # Rebuild each node's fixed-size candidate shortlist for this round
+        # before computing states, so states/actions/next-hop resolution
+        # all agree on the same slot -> neighbour-ID mapping.
+        self._build_candidate_slots()
+        states = [n.get_local_state(self.max_candidates) for n in self.net.nodes]
 
         # ---------------- traffic generation ----------------
         for _ in range(self.packets_per_round):
@@ -326,7 +417,7 @@ class MADRLEAURP:
                 packet["hops"] += 1
 
                 # TTL: retire undeliverable packets instead of looping forever.
-                if packet["hops"] > MAX_HOPS:
+                if packet["hops"] > self.max_hops:
                     self.metrics.packets_dropped += 1
                     self.metrics.drops_ttl_expired += 1
                     step_drop_penalty += PENALTY_DROP
@@ -397,7 +488,7 @@ class MADRLEAURP:
             - energy_penalty
             + (fairness * 5.0)
         )
-        next_states = [n.get_local_state(self.num_nodes) for n in self.net.nodes]
+        next_states = [n.get_local_state(self.max_candidates) for n in self.net.nodes]
 
         if training:
             self.train_step(states, actions, global_reward, next_states)

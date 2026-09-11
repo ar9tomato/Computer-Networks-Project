@@ -32,16 +32,18 @@ ENGINE_DIR = "ateaurp"
 
 def _run_single_speed(speed, network_manager_cls, node_cls, metrics_cls,
                        write_csv_fn, estimate_death_fn, engine_cls,
-                       rounds, packets_per_round, seed, delivery_mode):
+                       rounds, packets_per_round, seed, delivery_mode,
+                       num_nodes=NUM_NODES, grid_width=GRID_WIDTH, grid_height=GRID_HEIGHT,
+                       tx_range=TX_RANGE):
     rng = random.Random(seed)
 
     network = network_manager_cls(
-        num_nodes=NUM_NODES,
-        grid_width=GRID_WIDTH,
-        grid_height=GRID_HEIGHT,
-        tx_range=TX_RANGE,
+        num_nodes=num_nodes,
+        grid_width=grid_width,
+        grid_height=grid_height,
+        tx_range=tx_range,
         speed=speed,
-        num_groups=max(2, NUM_NODES // 10),
+        num_groups=max(2, num_nodes // 10),
         malicious_probability=MALICIOUS_PROBABILITY,
         seed=seed,
     )
@@ -104,11 +106,18 @@ def _run_single_speed(speed, network_manager_cls, node_cls, metrics_cls,
 
 
 def run(speeds, rounds=ROUNDS, packets_per_round=PACKETS_PER_ROUND, verbose=True,
-        delivery_mode="tuned"):
+        delivery_mode="tuned", num_nodes=NUM_NODES, grid_width=None, grid_height=None):
     """
     Runs ATEAURP across all `speeds`. Returns a flat list of normalized
     row dicts, one per speed.
+
+    Pass a different `num_nodes` (grid_width/height left as None) to run a
+    density-matched scaling experiment instead of the standard benchmark.
     """
+    if grid_width is None or grid_height is None:
+        from engine_adapters.benchmark import density_matched_grid
+        grid_width, grid_height = density_matched_grid(num_nodes)
+
     network_module = _isolated_import(ENGINE_DIR, "core.network")
     node_module = _isolated_import(ENGINE_DIR, "core.node")
     metrics_module = _isolated_import(ENGINE_DIR, "core.metrics")
@@ -125,11 +134,12 @@ def run(speeds, rounds=ROUNDS, packets_per_round=PACKETS_PER_ROUND, verbose=True
     for i, speed in enumerate(speeds):
         seed = BASE_SEED + i
         if verbose:
-            print(f"[ATEAURP] speed={speed} m/s ...")
+            print(f"[ATEAURP] speed={speed} m/s, num_nodes={num_nodes} ...")
         summary = _run_single_speed(
             speed, NetworkManager, Node, MetricsCollector, write_results_csv,
             estimate_first_node_death_round, ATEAURPEngine,
             rounds, packets_per_round, seed, delivery_mode,
+            num_nodes=num_nodes, grid_width=grid_width, grid_height=grid_height,
         )
         if verbose:
             print(f"          -> PDR={summary['pdr_percent']:.2f}% "

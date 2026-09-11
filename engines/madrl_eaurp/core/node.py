@@ -24,6 +24,13 @@ class Node:
         self.neighbors_1hop = []
         self.neighbors_2hop = []
         self.trust_table = np.ones(num_nodes) * 0.5  # Neutral trust 0.5 initially
+
+        # Fixed-size candidate shortlist (top-K 1-hop neighbours by
+        # trust/energy/occupancy), rebuilt once per round by
+        # MADRLEAURP._build_candidate_slots(). This is what makes the
+        # Q-network's state/action space stop growing with num_nodes —
+        # see protocols/madrl_eaurp.py's module docstring.
+        self.candidate_slots = []
         
         # Statistics
         self.packets_sent = 0
@@ -54,11 +61,26 @@ class Node:
             return True
         return False
 
-    def get_local_state(self, num_nodes=50):
-        # S_{t,i} = [buffer_occupancy, residual_energy, neighbor_trust_information]
-        state = np.zeros(2 + num_nodes)
+    def get_local_state(self, max_candidates):
+        """
+        S_{t,i} = [buffer_occupancy, residual_energy, trust-of-each-candidate-slot]
+
+        Fixed size (2 + max_candidates), independent of network size: the
+        old version was 2 + num_nodes (one slot per possible global node
+        ID, -1 if not a current neighbour), which meant the Q-network's
+        input — and its action space, built on the same indexing — grew
+        every time the network grew. A 400-node run had to learn a 402-dim
+        state to 400-way action mapping from just 50 warm-up rounds, which
+        is why performance collapsed at scale. This uses the same
+        trust-or--1 encoding, just capped at the top-K ranked candidates
+        instead of every node ID in the network.
+        """
+        state = np.zeros(2 + max_candidates)
         state[0] = len(self.buffer) / self.buffer_capacity
         state[1] = self.energy / self.initial_energy
-        for i in range(num_nodes):
-            state[2 + i] = self.trust_table[i] if i in self.neighbors_1hop else -1.0
+        for slot in range(max_candidates):
+            if slot < len(self.candidate_slots):
+                state[2 + slot] = self.trust_table[self.candidate_slots[slot]]
+            else:
+                state[2 + slot] = -1.0
         return state

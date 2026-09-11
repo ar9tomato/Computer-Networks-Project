@@ -71,7 +71,8 @@ def _estimate_network_lifetime_rounds(nodes, rounds_survived, first_death_round)
     return max(1, round(INITIAL_ENERGY / consumption_rate_per_round))
 
 
-def _run_single_speed(speed, network_cls, metrics_cls, engine_cls, verbose, seed=None):
+def _run_single_speed(speed, network_cls, metrics_cls, engine_cls, verbose, seed=None,
+                       num_nodes=NUM_NODES, grid_size=GRID_SIZE, tx_range=TX_RANGE):
     # Reproducibility: this engine drives topology, traffic and epsilon-greedy
     # exploration from the GLOBAL numpy/torch RNGs, so unlike the other four
     # adapters it produced a different answer on every run. Seeding per speed
@@ -83,7 +84,7 @@ def _run_single_speed(speed, network_cls, metrics_cls, engine_cls, verbose, seed
         _random.seed(seed)
         _torch.manual_seed(seed)
 
-    network = network_cls(num_nodes=NUM_NODES, grid_size=GRID_SIZE, tx_range=TX_RANGE,
+    network = network_cls(num_nodes=num_nodes, grid_size=grid_size, tx_range=tx_range,
                           speed=speed, initial_energy=INITIAL_ENERGY)
     metrics = metrics_cls()
     madrl = engine_cls(network, metrics, packets_per_round=PACKETS_PER_ROUND)
@@ -99,7 +100,15 @@ def _run_single_speed(speed, network_cls, metrics_cls, engine_cls, verbose, seed
             first_death_round = round_counter
 
     # Fresh metrics for the evaluation phase, matching the original
-    # script's own train/eval split.
+    # script's own train/eval split. Node buffers are also cleared here:
+    # without this, packets still in flight from the training warm-up
+    # carry over into evaluation and get delivered (and counted) during
+    # eval without ever being counted as "sent" in eval's fresh metrics,
+    # which can inflate PDR above 100% — worse the more efficiently the
+    # policy routes. Every other engine here starts its measured phase
+    # from a clean slate; this makes MADRL-EAURP do the same.
+    for node in network.nodes:
+        node.buffer = []
     metrics = metrics_cls()
     madrl.metrics = metrics
     eval_rounds = 0
@@ -166,7 +175,7 @@ def _run_single_speed(speed, network_cls, metrics_cls, engine_cls, verbose, seed
     return summary
 
 
-def run(speeds, verbose=True, **_ignored_kwargs):
+def run(speeds, verbose=True, num_nodes=NUM_NODES, grid_size=None, **_ignored_kwargs):
     """
     Runs MADRL-EAURP across all `speeds`. Returns a flat list of
     normalized row dicts, one per speed.
@@ -175,7 +184,17 @@ def run(speeds, verbose=True, **_ignored_kwargs):
     can be called uniformly alongside the other adapters — this engine's
     own train(50)/evaluate(100) round counts and per-round packet
     generation are fixed by its original design, not configurable here.
+
+    Pass a different `num_nodes` (grid_size left as None) to run a
+    density-matched scaling experiment instead of the standard benchmark;
+    grid_size scales with num_nodes so average node density — and thus
+    average neighbor count — stays constant, isolating "more nodes to
+    coordinate across" as the variable under test.
     """
+    if grid_size is None:
+        from engine_adapters.benchmark import density_matched_grid
+        grid_size, _ = density_matched_grid(num_nodes)
+
     network_module = _isolated_import(ENGINE_DIR, "core.network")
     metrics_module = _isolated_import(ENGINE_DIR, "core.metrics")
     protocols_module = _isolated_import(ENGINE_DIR, "protocols.madrl_eaurp")
@@ -187,9 +206,11 @@ def run(speeds, verbose=True, **_ignored_kwargs):
     rows = []
     for i, speed in enumerate(speeds):
         if verbose:
-            print(f"[MADRL-EAURP] speed={speed} m/s (train {TRAINING_ROUNDS} / eval {EVAL_ROUNDS} rounds) ...")
+            print(f"[MADRL-EAURP] speed={speed} m/s, num_nodes={num_nodes} "
+                  f"(train {TRAINING_ROUNDS} / eval {EVAL_ROUNDS} rounds) ...")
         summary = _run_single_speed(speed, MANETNetwork, MetricsTracker, MADRLEAURP,
-                                    verbose, seed=BASE_SEED + i)
+                                    verbose, seed=BASE_SEED + i,
+                                    num_nodes=num_nodes, grid_size=grid_size)
         rows.append(normalize_row("MADRL-EAURP", speed, summary))
 
     return rows

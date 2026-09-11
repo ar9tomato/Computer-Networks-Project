@@ -43,6 +43,35 @@ BASE_SEED = 42
 # Seconds of simulated wall-clock time represented by a full run.
 SIMULATION_SECONDS = (ROUNDS * ROUND_DURATION_MS) / 1000.0
 
+# ---------------------------------------------------------------------
+# Node-count scaling sweep
+# ---------------------------------------------------------------------
+# Node counts to compare protocols across, holding speed fixed. Chosen to
+# span "same as the original benchmark" (50) up to 8x that (400).
+NODE_COUNTS_SWEEP = [50, 100, 200, 400]
+
+# Speed (m/s) used for the node-count sweep. Fixed so num_nodes is the only
+# thing varying between runs.
+SCALING_SPEED_MPS = 20
+
+
+def density_matched_grid(num_nodes, base_nodes=NUM_NODES, base_grid=GRID_SIZE):
+    """
+    Returns a (grid_width, grid_height) pair that keeps node density
+    (nodes per unit area) constant as num_nodes changes, given the
+    original base_nodes-in-base_grid density.
+
+    Without this, simply raising num_nodes on a fixed 1000x1000 grid also
+    raises density (more neighbors within tx_range for everyone), which
+    would improve every protocol's PDR for a reason that has nothing to do
+    with how well it coordinates a larger network. Scaling the grid area
+    proportionally to num_nodes isolates "more nodes to route/coordinate
+    across" as the actual variable under test — the standard way MANET
+    literature runs a node-count scaling study.
+    """
+    side = base_grid * ((num_nodes / base_nodes) ** 0.5)
+    return side, side
+
 
 # ---------------------------------------------------------------------
 # Unified metrics schema
