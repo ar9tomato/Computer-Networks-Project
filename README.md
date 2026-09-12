@@ -1,4 +1,449 @@
-# Computer Networks Project - Unified Experiment Pipeline
+# MANET Routing Protocols — Comparative Simulation Project
+
+A comparative simulation and performance analysis of **trust-aware, energy-aware, predictive, and reinforcement-learning-based routing protocols for Mobile Ad-hoc Networks (MANETs)**.
+
+The project studies the evolution of routing strategies from conventional **AODV** to increasingly intelligent and adaptive approaches:
+
+**AODV → EAURP → ATEAURP → PSE-EAURP → DRL-EAURP → MADRL-EAURP**
+
+Each team member independently implements one stage of this progression using a common simulation environment and evaluation methodology, allowing the protocols to be compared under the same network conditions.
+
+---
+
+## Project Overview
+
+Mobile Ad-hoc Networks (MANETs) consist of mobile wireless nodes that communicate without relying on fixed infrastructure. Because nodes can move dynamically, network topology changes frequently, making routing a challenging problem.
+
+Traditional routing protocols such as **AODV (Ad hoc On-Demand Distance Vector)** primarily focus on finding routes based on network connectivity. However, MANETs can also suffer from:
+
+* Node mobility
+* Unstable links
+* Malicious or misbehaving nodes
+* Limited energy
+* Route failures
+* Increasing communication delay
+* Reduced packet delivery
+
+This project investigates how routing performance can be improved by progressively incorporating:
+
+1. Energy awareness
+2. Trust management
+3. Adaptive trust estimation
+4. Predictive trust analysis
+5. Deep/reinforcement learning
+6. Multi-agent reinforcement learning
+
+The protocols are evaluated using common network conditions and performance metrics.
+
+---
+
+## Objectives
+
+The major objectives of this project are:
+
+* Implement and simulate multiple MANET routing protocols.
+* Establish **AODV as a baseline routing protocol**.
+* Introduce energy-aware and trust-aware routing mechanisms.
+* Detect and isolate malicious or misbehaving nodes.
+* Improve routing decisions using historical and predictive trust information.
+* Investigate reinforcement-learning-based routing.
+* Extend centralized learning to multi-agent learning.
+* Compare protocols using standardized performance metrics.
+* Study the effect of node mobility on routing performance.
+* Analyze the trade-offs between security, reliability, delay, throughput, and network lifetime.
+
+---
+
+# Protocol Evolution
+
+The project follows a progressive improvement model.
+
+```text
+                         AODV
+                          │
+                          ▼
+                        EAURP
+                          │
+                          ▼
+                       ATEAURP
+                          │
+                          ▼
+                      PSE-EAURP
+                          │
+                          ▼
+                      DRL-EAURP
+                          │
+                          ▼
+                     MADRL-EAURP
+```
+
+### 1. AODV
+
+**Ad hoc On-Demand Distance Vector**
+
+AODV is used as the baseline routing protocol.
+
+It establishes routes only when required and maintains routing information through route discovery and route maintenance mechanisms.
+
+---
+
+### 2. EAURP
+
+**Energy-Aware Unicast Routing Protocol**
+
+EAURP extends the baseline routing approach by considering the energy state of nodes.
+
+The objective is to avoid excessive use of low-energy nodes and increase overall network lifetime.
+
+**Key idea:**
+
+> Select routes while considering both connectivity and energy availability.
+
+---
+
+### 3. ATEAURP
+
+**Adaptive Trust-Enhanced Energy-Aware Unicast Routing Protocol**
+
+ATEAURP introduces dynamic trust evaluation into energy-aware routing.
+
+It monitors node behavior and uses trust information to reduce the probability of forwarding packets through malicious or unreliable nodes.
+
+The adaptive trust update follows:
+
+```text
+T(t+1) = 0.7 × T(t) + 0.3 × PFR
+```
+
+where:
+
+* `T(t)` = previous trust value
+* `PFR` = Packet Forwarding Ratio
+* `T(t+1)` = updated trust value
+
+### Key Features
+
+* Dynamic trust-based routing
+* Malicious-node isolation
+* Energy monitoring
+* Network lifetime tracking
+* Node mobility experiments
+* Performance visualization
+
+---
+
+### 4. PSE-EAURP
+
+**Predictive Secure Energy-Aware Unicast Routing Protocol**
+
+PSE-EAURP extends ATEAURP by introducing **predictive trust estimation**.
+
+Instead of reacting only after a node demonstrates poor behavior, the protocol uses historical trust information to predict future behavior.
+
+A three-slot weighted trust history is used:
+
+```text
+T_pred = 0.5 × T(t)
+       + 0.3 × T(t-1)
+       + 0.2 × T(t-2)
+```
+
+The predicted trust is then incorporated into routing decisions.
+
+### PT_CREV
+
+PSE-EAURP also introduces **Predictive Trust-Controlled Revocation (PT_CREV)**.
+
+Nodes whose predicted trust remains sufficiently low can be:
+
+* Flagged as suspicious
+* Blacklisted
+* Removed from future routes
+* Reported across the network
+
+This allows the protocol to react to potentially malicious nodes before their behavior causes significant network degradation.
+
+---
+
+### 5. DRL-EAURP
+
+**Deep/Reinforcement-Learning-Based Energy-Aware Unicast Routing Protocol**
+
+DRL-EAURP introduces reinforcement learning into routing decisions.
+
+Instead of relying exclusively on manually defined routing rules, a learning agent evaluates network conditions and learns which routing decisions provide better long-term performance.
+
+The learning process considers factors such as:
+
+* Trust
+* Energy
+* Connectivity
+* Packet delivery
+* Network conditions
+* Routing performance
+
+The objective is to learn routing policies that improve overall network performance.
+
+---
+
+### 6. MADRL-EAURP
+
+**Multi-Agent Deep Reinforcement Learning Energy-Aware Unicast Routing Protocol**
+
+MADRL-EAURP extends the reinforcement-learning approach to multiple cooperating agents.
+
+The project uses a **Centralized Training with Decentralized Execution (CTDE)** approach.
+
+Multiple agents can cooperate while learning during training, while routing decisions can be made locally during execution.
+
+The approach incorporates:
+
+* Multi-agent learning
+* Cooperative routing
+* Local decision-making
+* 2-hop information exchange/gossip
+* QMIX/VDN-style value decomposition
+
+This represents the most advanced routing strategy in the project.
+
+---
+
+# Common Simulation Environment
+
+To make the comparison meaningful, the protocols use a common simulation baseline.
+
+| Parameter       | Configuration                |
+| --------------- | ---------------------------- |
+| Deployment Area | 1000 × 1000 m²               |
+| Default Nodes   | 50                           |
+| Maximum Nodes   | Up to 500                    |
+| Node Speed      | 10–40 m/s                    |
+| Connectivity    | Euclidean distance threshold |
+| Routing         | Multi-hop                    |
+| Network Type    | Mobile Ad-hoc Network        |
+| Trust           | Protocol dependent           |
+| Energy Model    | Protocol dependent           |
+| Malicious Nodes | Supported                    |
+| Experiments     | Automated                    |
+
+Using a shared environment ensures that differences in results are primarily caused by the routing algorithms rather than completely different simulation settings.
+
+---
+
+# Performance Metrics
+
+The protocols are evaluated using the following metrics.
+
+### Packet Delivery Ratio — PDR
+
+Measures the percentage of transmitted packets that successfully reach their destination.
+
+```text
+PDR = Successfully Delivered Packets
+      -------------------------------- × 100
+       Total Packets Sent
+```
+
+Higher PDR indicates better reliability.
+
+---
+
+### Average Delay
+
+Measures the average time required for packets to travel from source to destination.
+
+Lower delay indicates faster communication.
+
+---
+
+### Throughput
+
+Measures the amount of useful data successfully transmitted through the network per unit time.
+
+Typically represented in:
+
+```text
+kbps
+```
+
+Higher throughput indicates better network utilization.
+
+---
+
+### Packet Loss
+
+Measures the number or percentage of packets that fail to reach their destination.
+
+Lower packet loss indicates better routing reliability.
+
+---
+
+### Network Lifetime
+
+Measures how long the network remains operational before nodes begin to fail because of energy depletion or other conditions.
+
+Higher network lifetime indicates better energy efficiency.
+
+---
+
+
+# ⚙️ Requirements
+
+The project primarily uses **Python** for simulation, experimentation, and visualization.
+
+### Software
+
+* Python 3.x
+* pip
+* Git
+
+### Python Libraries
+
+The exact dependencies for each implementation are provided in its respective:
+
+```text
+requirements.txt
+```
+
+---
+
+
+# 🔬 Experimental Workflow
+
+The general workflow is:
+
+```text
+                 ┌─────────────────────┐
+                 │   Network Setup     │
+                 └──────────┬──────────┘
+                            │
+                            ▼
+                 ┌─────────────────────┐
+                 │ Generate MANET      │
+                 │ Nodes & Topology    │
+                 └──────────┬──────────┘
+                            │
+                            ▼
+                 ┌─────────────────────┐
+                 │ Select Routing      │
+                 │ Protocol            │
+                 └──────────┬──────────┘
+                            │
+                            ▼
+                 ┌─────────────────────┐
+                 │ Run Simulation      │
+                 │ Across Mobility     │
+                 │ Conditions          │
+                 └──────────┬──────────┘
+                            │
+                            ▼
+                 ┌─────────────────────┐
+                 │ Collect Metrics     │
+                 │ PDR / Delay / etc.  │
+                 └──────────┬──────────┘
+                            │
+                            ▼
+                 ┌─────────────────────┐
+                 │ Generate Graphs     │
+                 │ & Comparisons       │
+                 └─────────────────────┘
+```
+
+---
+
+# 🧠 Research Progression
+
+The project can be viewed as a progression from conventional routing to intelligent adaptive routing:
+
+| Stage           | Main Improvement                         |
+| --------------- | ---------------------------------------- |
+| **AODV**        | On-demand routing baseline               |
+| **EAURP**       | Energy-aware routing                     |
+| **ATEAURP**     | Dynamic trust + energy awareness         |
+| **PSE-EAURP**   | Predictive trust + controlled revocation |
+| **DRL-EAURP**   | Reinforcement-learning-based routing     |
+| **MADRL-EAURP** | Cooperative multi-agent learning         |
+
+This progression allows the project to investigate how increasingly sophisticated decision-making mechanisms affect MANET performance.
+
+---
+
+# 👥 Team Contributions
+
+| Member   | Protocol     | Primary Contribution                   |
+| -------- | ------------ | -------------------------------------- |
+| Member 1 | AODV + EAURP | Baseline and energy-aware routing      |
+| Member 2 | ATEAURP      | Adaptive trust-based routing           |
+| Member 3 | PSE-EAURP    | Predictive trust and secure revocation |
+| Member 4 | DRL-EAURP    | Reinforcement-learning-based routing   |
+| Member 5 | MADRL-EAURP  | Multi-agent reinforcement learning     |
+
+Each implementation is maintained in its own directory while following the shared simulation methodology.
+
+---
+
+# 🔍 Why Compare These Protocols?
+
+The comparison demonstrates the evolution of routing intelligence:
+
+```text
+Connectivity
+     ↓
+Energy Awareness
+     ↓
+Trust Awareness
+     ↓
+Trust Prediction
+     ↓
+Reinforcement Learning
+     ↓
+Multi-Agent Reinforcement Learning
+```
+
+This makes it possible to study the trade-offs between:
+
+* Reliability
+* Security
+* Energy efficiency
+* Adaptability
+* Delay
+* Throughput
+* Computational complexity
+* Network lifetime
+
+---
+
+# Technologies Used
+
+* **Python**
+* **Network Simulation**
+* **MANET Routing**
+* **AODV**
+* **Trust Management**
+* **Energy-Aware Routing**
+* **Predictive Analytics**
+* **Reinforcement Learning**
+* **Multi-Agent Reinforcement Learning**
+* **QMIX / VDN**
+* **Data Visualization**
+* **Performance Analysis**
+
+---
+
+# Project Status
+
+This repository is developed as a **Computer Networks academic project** focused on implementing, simulating, and comparing progressively enhanced MANET routing protocols.
+
+The implementations are organized independently while following a shared simulation baseline to support meaningful comparative analysis.
+
+---
+
+## Repository
+
+**GitHub:**
+https://github.com/ar9tomato/Computer-Networks-Project
+
+---
 
 Run it:
 
@@ -15,10 +460,6 @@ python node_scaling_experiment.py --delivery-mode simulated
 
 Baseline for every protocol: 4,000 packets, 100 J/node, speeds [10, 20, 30, 40]
 m/s, 100 ms/round. Both delivery modes reproduce byte-identically across runs.
-
-Read the "what I did not tune" section of `PARAMETER_FIXES.md` before using
-these numbers in a write-up. Several columns are modelled rather than
-measured, and they aren't all comparable across engines.
 
 Consolidated MANET routing-protocol comparison across all five members'
 protocols: AODV, EAURP, ATEAURP, PSE-EAURP, DRL-EAURP, and MADRL-EAURP. Each
@@ -59,111 +500,9 @@ Computer-Networks-Project/
 │   ├── tuned/           *.png          # generated (5 charts)
 │   ├── simulated/       *.png          # generated (5 charts)
 │   └── node_scaling/    *.png          # generated (PDR/delay vs. node count)
-├── REFACTOR_NOTES.md
-├── PARAMETER_FIXES.md
 └── requirements.txt
 ```
 
-Every member's `run_experiments.py` and `visualize.py` are removed. Their
-logic now lives in `engine_adapters/` and the two root scripts.
-
-## Why there's an `engine_adapters/` layer instead of one merged `core/`
-
-The five members' protocol code was written independently and isn't
-API-compatible across the board:
-
-| Engine family | Network class | Node "alive" check | Per-packet call |
-|---|---|---|---|
-| `aodv_eaurp` (M1) | `Network` | `node.alive` | `engine.send_packet(src, dst, metrics, round)`, mutates a shared `MetricsCollector` |
-| `ateaurp` / `pse_eaurp` / `drl_eaurp` (M2/M3/M4) | `NetworkManager` | `node.is_alive` (property) | `engine.route_packet(src, dst, round)` -> `(delivered, delay_ms, hop_count)` |
-| `madrl_eaurp` (M5) | `MANETNetwork` | `node.is_alive()` (method) | `engine.step_environment(training=...)`, a full train/eval RL loop, no single-packet call at all |
-
-M2/M3/M4 actually share an identical `core/` (byte-for-byte for
-`node.py`/`metrics.py`; only `network.py`'s docstring differs). Only their
-engine classes (`ATEAURPEngine`, `PSEEAURPEngine`, `DRLEAURPEngine`) differ,
-each with a different constructor and per-round trust-update contract. M5
-shares nothing with the other four: it's a torch-based multi-agent DRL
-router with its own network/metrics classes and an explicit
-train-then-evaluate loop instead of a speed-sweep loop.
-
-Merging all of this into one `Network`/`Node`/`Engine` class would mean
-rewriting and re-validating five different simulation cores, which is out
-of scope for a structural refactor and risky to correctness. Instead:
-
-- Each engine's `core/` and `protocols/` package stays intact under
-  `engines/<name>/` (aside from the documented fixes below), not silently
-  rewritten to match the others.
-- Several engines' packages are still named `core` and `protocols`
-  internally (their own files still do `from core.network import Network`,
-  etc.), so `engine_adapters/__init__.py`'s `_isolated_import()` helper
-  loads each engine's `core`/`protocols` from its own directory and clears
-  `sys.modules` between engines, so same-named packages never collide.
-- Each adapter (`aodv_eaurp_adapter.py`, `ateaurp_adapter.py`,
-  `pse_eaurp_adapter.py`, `drl_eaurp_adapter.py`, `madrl_eaurp_adapter.py`)
-  reproduces that member's original experiment loop, then converts its
-  output into one common row schema (`protocol`, `speed_mps`,
-  `pdr_percent`, `avg_delay_ms`, `packet_loss_percent`, `throughput_kbps`,
-  `network_lifetime_rounds`, plus whatever protocol-specific extra columns
-  it has, e.g. `detection_rate_percent`, `avg_trust`,
-  `total_pt_crev_broadcasts`, `gossip_messages`).
-
-`run_all_experiments.py`, `node_scaling_experiment.py`, and
-`visualize_all.py` only ever talk to that common schema. They don't know
-or care that `AODVEngine` and `MADRLEAURP` work completely differently
-internally.
-
-### Two bugs fixed in Member5's original script (not a redesign)
-
-`madrl_eaurp_adapter.py`'s docstring documents this in full, but in short,
-Member5's original `run_experiments.py`:
-
-1. Called `np.random.uniform(...)` without ever importing `numpy`, which
-   would crash immediately. The adapter imports it itself.
-2. Computed "lifetime" as `1000 - (speed * 5.5) + noise`, a formula with no
-   connection to the simulated nodes' actual energy at all. The adapter
-   instead derives `network_lifetime_rounds` from each node's real
-   observed energy depletion (first real death within the run, or an
-   estimate from the observed depletion rate), the same convention
-   `ateaurp`/`pse_eaurp`/`drl_eaurp`'s own `estimate_first_node_death_round`
-   already uses.
-
-## `engines/madrl_eaurp` fixes: routing correctness, then scalability
-
-The original MADRL-EAURP reported 3-5% PDR. That wasn't slow convergence,
-it was three routing bugs that made delivery almost impossible regardless
-of what the network learned (an action space limited to 1-hop neighbours
-compared with `action == dst` directly, no TTL or loop detection, and
-invalid actions counted as drops with no fallback). `protocols/madrl_eaurp.py`
-documents the fixes: graceful fallback through local repair and route
-discovery, a hop budget with loop-free packet state, and delivery credited
-whenever a packet actually arrives.
-
-A second, separate pass fixed how MADRL-EAURP scales with network size:
-
-- **State/action space was O(num_nodes).** The Q-network indexed directly
-  into every global node ID (`state_dim = 2 + N`, `action_dim = N`), so at
-  400 nodes it had to learn a 402-dimensional, mostly-padding state mapped
-  to a 1-of-400 decision from the same 50 warm-up rounds used at 50 nodes.
-  It now ranks each node's 1-hop neighbours into a fixed top-8 candidate
-  shortlist and reasons over "prefer my best-ranked candidate / defer to
-  the fallback heuristic" instead, a state/action space of fixed size
-  regardless of `num_nodes`.
-- **TTL wasn't derived from the topology.** The packet hop budget was a
-  flat `MAX_HOPS = 12`, about half of what ATEAURP/PSE-EAURP/DRL-EAURP use
-  (`25`), with no connection to grid size. It's now computed from the
-  network's own diagonal and transmission range, using the same safety
-  margin the other three engines' fixed `25` implies at their baseline
-  1000m grid, so it scales sensibly as the grid does.
-- **Train/eval buffer leak.** Packets still in flight at the end of the
-  training warm-up were carrying over into evaluation and getting counted
-  as delivered without a matching "sent" in eval's metrics, which could
-  push PDR above 100% once routing got efficient enough to surface it.
-  Node buffers are now cleared at the train/eval boundary, the same
-  clean-slate convention every other engine already follows.
-
-None of this touches the reward function, the gossip/trust mechanics, or
-the fallback routing logic; it only changes what the Q-network's inputs
-and outputs represent.
 
 ## `node_scaling_experiment.py`
 
@@ -187,26 +526,6 @@ python node_scaling_experiment.py --skip madrl_eaurp                # torch not 
 Writes `results/node_scaling_metrics.csv`, one row per `(protocol,
 num_nodes)` pair.
 
-## `__init__.py` / import notes
-
-- No changes were needed inside any `engines/<name>/` package. Their
-  `core/__init__.py` and `protocols/__init__.py` are untouched, and their
-  internal files keep using `from core.network import ...` /
-  `from protocols.<x> import ...` exactly as before.
-- The only new import machinery is `engine_adapters/__init__.py`'s
-  `_isolated_import(engine_dir_name, module_path)`, which:
-  1. removes any previously loaded `core.*` / `protocols.*` modules from
-     `sys.modules`,
-  2. puts `engines/<engine_dir_name>/` at the front of `sys.path` (and
-     removes every other engine's directory from `sys.path`),
-  3. imports and returns the requested module fresh from that directory.
-- To add a sixth engine later: drop it under `engines/<name>/` with its own
-  `core/`/`protocols/` packages, write one adapter module that calls
-  `_isolated_import("<name>", "...")` and returns `normalize_row(...)`
-  rows, add it to the `ADAPTERS` dict in `run_all_experiments.py` (and
-  `node_scaling_experiment.py` if it should be part of the scaling sweep
-  too), and optionally give it a style entry in `visualize_all.py`'s
-  `PROTOCOL_STYLES`.
 
 ## Usage
 
@@ -240,24 +559,3 @@ one row per `(protocol, num_nodes)` pair instead. `visualize_all.py` reads
 the speed-sweep file and writes one PNG per metric under `plots/`, with
 every protocol present plotted together using a fixed, distinct
 color/marker/line-style per protocol and a legend.
-
-## Metrics compared
-
-- Packet Delivery Ratio (%)
-- Average Delay (ms)
-- Packet Loss (%)
-- Throughput (kbps)
-- Network Lifetime (rounds)
-
-Each protocol may also report extra columns in `combined_metrics.csv` (e.g.
-ATEAURP/PSE-EAURP/DRL-EAURP's `avg_trust`, `detection_rate_percent`;
-PSE-EAURP's `total_pt_crev_broadcasts`; MADRL-EAURP's `gossip_messages`)
-that aren't part of the shared comparison charts but remain available for
-protocol-specific analysis.
-
-## Note on `madrl_eaurp`'s dependency
-
-`engines/madrl_eaurp` uses `torch` for its DQN (the other four engines only
-need `pandas`/`matplotlib`, already in `requirements.txt`). Install it with
-`pip install torch`, or run everything else via
-`python run_all_experiments.py --skip madrl_eaurp` if you don't need it.
