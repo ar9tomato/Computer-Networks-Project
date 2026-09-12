@@ -287,7 +287,7 @@ Higher network lifetime indicates better energy efficiency.
 ---
 
 
-# ⚙️ Requirements
+# Requirements
 
 The project primarily uses **Python** for simulation, experimentation, and visualization.
 
@@ -308,7 +308,7 @@ requirements.txt
 ---
 
 
-# 🔬 Experimental Workflow
+# Experimental Workflow
 
 The general workflow is:
 
@@ -351,7 +351,7 @@ The general workflow is:
 
 ---
 
-# 🧠 Research Progression
+# Research Progression
 
 The project can be viewed as a progression from conventional routing to intelligent adaptive routing:
 
@@ -368,7 +368,7 @@ This progression allows the project to investigate how increasingly sophisticate
 
 ---
 
-# 👥 Team Contributions
+# Team Contributions
 
 | Member   | Protocol     | Primary Contribution                   |
 | -------- | ------------ | -------------------------------------- |
@@ -382,7 +382,7 @@ Each implementation is maintained in its own directory while following the share
 
 ---
 
-# 🔍 Why Compare These Protocols?
+# Why Compare These Protocols?
 
 The comparison demonstrates the evolution of routing intelligence:
 
